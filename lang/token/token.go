@@ -2,6 +2,7 @@ package token
 
 //Comments
 const (
+	ILLEGAL  = "ILLEGAL"
 	EQUAL    = "="
 	GT       = ">"
 	GTE      = ">="

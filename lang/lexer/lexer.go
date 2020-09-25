@@ -63,10 +63,6 @@ func getString(l *Lexer) token.Token {
 func (l *Lexer) NextToken() token.Token {
 
 	l.readChar()
-	tok := token.Token{
-		Lexeme: "",
-		Type:   token.EOF,
-	}
 	switch l.current {
 	case '=':
 		return addToken(l.current, token.EQUAL)
@@ -126,6 +122,15 @@ func (l *Lexer) NextToken() token.Token {
 		return getString(l)
 	case '#':
 		return addToken(l.current, token.DOT)
+	case '\n':
+		l.line++
+		break
+	case 0:
+		return addToken(0, token.EOF)
 	}
-	return tok
+
+	return token.Token{
+		Lexeme: string(l.current),
+		Type:   token.ILLEGAL,
+	}
 }
