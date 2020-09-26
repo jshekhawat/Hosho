@@ -16,7 +16,8 @@ type Lexer struct {
 	line         int
 }
 
-type error struct {
+//Error provides any errors encountered while lexing
+type Error struct {
 }
 
 // New initialises the lexer for a given source
@@ -41,7 +42,7 @@ func (l *Lexer) readChar() {
 	l.readPosition++
 }
 
-func addToken(lexeme byte, tt token.Type) token.Token {
+func getToken(lexeme byte, tt token.Type) token.Token {
 	return token.Token{
 		Lexeme: string(lexeme),
 		Type:   tt,
@@ -49,12 +50,12 @@ func addToken(lexeme byte, tt token.Type) token.Token {
 }
 
 func getString(l *Lexer) token.Token {
-	start := l.position
+	start := l.readPosition
 	for l.current != '\'' {
 		l.readChar()
 	}
 	return token.Token{
-		Lexeme: string(l.source[start:l.position]),
+		Lexeme: string(l.source[start:l.readPosition]),
 		Type:   token.STRING,
 	}
 }
@@ -65,7 +66,7 @@ func (l *Lexer) NextToken() token.Token {
 	l.readChar()
 	switch l.current {
 	case '=':
-		return addToken(l.current, token.EQUAL)
+		return getToken(l.current, token.EQUAL)
 	case '>':
 		if l.match('=') {
 			l.readChar()
@@ -74,7 +75,7 @@ func (l *Lexer) NextToken() token.Token {
 				Type:   token.GTE,
 			}
 		}
-		return addToken(l.current, token.GT)
+		return getToken(l.current, token.GT)
 	case '<':
 		if l.match('=') {
 			l.readChar()
@@ -83,29 +84,29 @@ func (l *Lexer) NextToken() token.Token {
 				Type:   token.LTE,
 			}
 		}
-		return addToken(l.current, token.LTE)
+		return getToken(l.current, token.LTE)
 	case '!':
-		return addToken(l.current, token.BANG)
+		return getToken(l.current, token.BANG)
 	case '+':
-		return addToken(l.current, token.PLUS)
+		return getToken(l.current, token.PLUS)
 	case '-':
-		return addToken(l.current, token.MINUS)
+		return getToken(l.current, token.MINUS)
 	case '/':
-		return addToken(l.current, token.SLASH)
+		return getToken(l.current, token.SLASH)
 	case '*':
-		return addToken(l.current, token.STAR)
+		return getToken(l.current, token.STAR)
 	case '(':
-		return addToken(l.current, token.LPAREN)
+		return getToken(l.current, token.LPAREN)
 	case ')':
-		return addToken(l.current, token.RPAREN)
+		return getToken(l.current, token.RPAREN)
 	case '[':
-		return addToken(l.current, token.LBRACKET)
+		return getToken(l.current, token.LBRACKET)
 	case ']':
-		return addToken(l.current, token.RBRACKET)
+		return getToken(l.current, token.RBRACKET)
 	case '{':
-		return addToken(l.current, token.LBRACE)
+		return getToken(l.current, token.LBRACE)
 	case '}':
-		return addToken(l.current, token.RBRACE)
+		return getToken(l.current, token.RBRACE)
 	case ':':
 		if l.match('=') {
 			return token.Token{
@@ -113,24 +114,75 @@ func (l *Lexer) NextToken() token.Token {
 				Type:   token.ASSIGN,
 			}
 		}
-		return addToken(l.current, token.COLON)
+		return getToken(l.current, token.COLON)
 	case '^':
-		return addToken(l.current, token.CARET)
+		return getToken(l.current, token.CARET)
 	case '.':
-		return addToken(l.current, token.DOT)
+		return getToken(l.current, token.DOT)
 	case '\'':
 		return getString(l)
 	case '#':
-		return addToken(l.current, token.DOT)
+		return getToken(l.current, token.COMMENT)
 	case '\n':
 		l.line++
 		break
+	case '\t':
+	case '\r':
+		break
 	case 0:
-		return addToken(0, token.EOF)
+		return getToken(0, token.EOF)
+	}
+	if isDigit(l.current) {
+		return l.number()
+	}
+
+	if isAlpha(l.current) {
+		return l.identifier()
 	}
 
 	return token.Token{
 		Lexeme: string(l.current),
 		Type:   token.ILLEGAL,
 	}
+}
+
+func (l *Lexer) number() token.Token {
+	start := l.position
+
+	for {
+		if isDigit(l.current) || l.match('.') {
+			l.readChar()
+		} else if isAlpha(l.current) || !isDigit(l.current) {
+			return getToken(l.current, token.ILLEGAL)
+		} else {
+			break
+		}
+	}
+
+	return token.Token{
+		Lexeme: string(l.source[start:l.position]),
+		Type:   token.NUMBER,
+	}
+}
+
+func (l *Lexer) identifier() token.Token {
+
+	start := l.position
+
+	for isAlpha(l.current) || isDigit(l.current) {
+		l.readChar()
+	}
+
+	return token.Token{
+		Lexeme: string(l.source[start:l.position]),
+		Type:   token.IDENT,
+	}
+}
+
+func isDigit(ch byte) bool {
+	return ch >= '0' && ch <= '9'
+}
+
+func isAlpha(ch byte) bool {
+	return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch == '_')
 }

@@ -24,6 +24,7 @@ const (
 	ASSIGN   = ":="
 	DOT      = "."
 	STRING   = "'"
+	NUMBER   = "NUMBER"
 	COMMENT  = "#"
 	NOT      = "NOT"
 	EOF      = "EOF"
