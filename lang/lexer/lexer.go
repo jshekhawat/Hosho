@@ -7,182 +7,225 @@ import (
 	"github.com/jshekhawat/pogo/lang/token"
 )
 
-//Lexer is the struct for scanning and generating tokens
+//Lexer only supports ascii
 type Lexer struct {
-	source       []byte
-	position     int
-	readPosition int
-	current      byte
-	line         int
+	current  rune
+	source   []byte
+	tokens   []token.Token
+	position int //the position of the current byte
+	line     int
+	errors   []Error
 }
 
-//Error provides any errors encountered while lexing
+//Msg is the message string for the thrown error
+type Msg string
+
+//Error is the error thrown while lexing
 type Error struct {
+	Msg  string
+	line int
+	col  int
 }
 
-// New initialises the lexer for a given source
-func New(source io.Reader) *Lexer {
-	bs, _ := ioutil.ReadAll(source)
-	l := &Lexer{source: bs}
-	l.readChar()
+//New returns an initialised lexer
+func New(r io.Reader) *Lexer {
+	var bs, _ = ioutil.ReadAll(r)
+	l := &Lexer{
+		current:  -1,
+		source:   bs,
+		position: 0,
+		line:     1,
+	}
+	l.nextToken()
 	return l
 }
 
+//Tokenise takes an input stream and tokenises it, tokens are stored in the tokens slice
+func (l *Lexer) Tokenise() {
+
+	for !l.isAtEnd() {
+		l.nextToken()
+	}
+}
+
+func (l *Lexer) advance() {
+	//this is so dumb
+	if l.isAtEnd() {
+		l.current = -1
+		l.position++
+		return
+	}
+	l.current = rune(l.source[l.position])
+	l.position++
+}
+
 func (l *Lexer) match(ch byte) bool {
-	return ch == l.source[l.readPosition]
-}
-
-func (l *Lexer) readChar() {
-	if l.readPosition >= len(l.source) {
-		l.current = 0
-	} else {
-		l.current = l.source[l.readPosition]
+	if l.isAtEnd() {
+		return false
 	}
-	l.position = l.readPosition
-	l.readPosition++
+	return ch == l.source[l.position]
 }
 
-func getToken(lexeme byte, tt token.Type) token.Token {
-	return token.Token{
-		Lexeme: string(lexeme),
+func (l *Lexer) addToken(ch rune, tt token.Type) {
+	l.tokens = append(l.tokens, token.Token{
+		Lexeme: string(ch),
 		Type:   tt,
-	}
+	})
 }
 
-func getString(l *Lexer) token.Token {
-	start := l.readPosition
-	for l.current != '\'' {
-		l.readChar()
-	}
-	return token.Token{
-		Lexeme: string(l.source[start:l.readPosition]),
-		Type:   token.STRING,
-	}
+func (l *Lexer) addStringToken(str string, tt token.Type) {
+	l.tokens = append(l.tokens, token.Token{
+		Lexeme: str,
+		Type:   tt,
+	})
 }
 
-//NextToken allows you to iterate through all the tokens in the input stream
-func (l *Lexer) NextToken() token.Token {
+func (l *Lexer) peek() rune {
+	if l.isAtEnd() {
+		return -1
+	}
+	return rune(l.source[l.position])
+}
 
-	l.readChar()
+func (l *Lexer) nextToken() {
+
+	l.advance()
+
 	switch l.current {
+	case -1:
+		l.addToken(l.current, token.EOF)
 	case '=':
-		return getToken(l.current, token.EQUAL)
+		l.addToken(l.current, token.EQUAL)
 	case '>':
 		if l.match('=') {
-			l.readChar()
-			return token.Token{
-				Lexeme: ">=",
-				Type:   token.GTE,
-			}
+			l.addStringToken(">=", token.GTE)
+		} else {
+			l.addToken(l.current, token.GT)
 		}
-		return getToken(l.current, token.GT)
 	case '<':
 		if l.match('=') {
-			l.readChar()
-			return token.Token{
-				Lexeme: "<=",
-				Type:   token.LTE,
-			}
+			l.addStringToken("<=", token.LTE)
+		} else {
+			l.addToken(l.current, token.LT)
 		}
-		return getToken(l.current, token.LTE)
-	case '!':
-		return getToken(l.current, token.BANG)
 	case '+':
-		return getToken(l.current, token.PLUS)
+		l.addToken(l.current, token.PLUS)
 	case '-':
-		return getToken(l.current, token.MINUS)
-	case '/':
-		return getToken(l.current, token.SLASH)
+		l.addToken(l.current, token.MINUS)
 	case '*':
-		return getToken(l.current, token.STAR)
+		l.addToken(l.current, token.STAR)
+	case '/':
+		l.addToken(l.current, token.SLASH)
 	case '(':
-		return getToken(l.current, token.LPAREN)
+		l.addToken(l.current, token.LPAREN)
 	case ')':
-		return getToken(l.current, token.RPAREN)
+		l.addToken(l.current, token.RPAREN)
 	case '[':
-		return getToken(l.current, token.LBRACKET)
+		l.addToken(l.current, token.LBRACKET)
 	case ']':
-		return getToken(l.current, token.RBRACKET)
+		l.addToken(l.current, token.RBRACKET)
 	case '{':
-		return getToken(l.current, token.LBRACE)
+		l.addToken(l.current, token.LBRACE)
 	case '}':
-		return getToken(l.current, token.RBRACE)
+		l.addToken(l.current, token.RBRACE)
+	case '^':
+		l.addToken(l.current, token.CARET)
 	case ':':
 		if l.match('=') {
-			return token.Token{
-				Lexeme: ":=",
-				Type:   token.ASSIGN,
-			}
+			l.addStringToken(":=", token.ASSIGN)
 		}
-		return getToken(l.current, token.COLON)
-	case '^':
-		return getToken(l.current, token.CARET)
 	case '.':
-		return getToken(l.current, token.DOT)
+		if isDigit(l.peek()) {
+			l.number()
+		} else {
+			l.addToken(l.current, token.DOT)
+		}
 	case '\'':
-		return getString(l)
-	case '#':
-		return getToken(l.current, token.COMMENT)
+		l.string()
 	case '\n':
 		l.line++
 		break
 	case '\t':
 	case '\r':
+	case ' ':
 		break
-	case 0:
-		return getToken(0, token.EOF)
-	}
-	if isDigit(l.current) {
-		return l.number()
+	default:
+		if isDigit(l.current) {
+			l.number()
+		} else if isAlpha(l.current) {
+			l.identifier()
+		} else {
+			l.addToken(l.current, token.ILLEGAL)
+		}
+
 	}
 
-	if isAlpha(l.current) {
-		return l.identifier()
-	}
-
-	return token.Token{
-		Lexeme: string(l.current),
-		Type:   token.ILLEGAL,
-	}
 }
 
-func (l *Lexer) number() token.Token {
-	start := l.position
+/*
+A number can be:
+20
+20.00
+.05
+*/
 
-	for {
-		if isDigit(l.current) || l.match('.') {
-			l.readChar()
-		} else if isAlpha(l.current) || !isDigit(l.current) {
-			return getToken(l.current, token.ILLEGAL)
-		} else {
-			break
+func (l *Lexer) number() {
+	start := l.position - 1
+
+	if l.current != '.' {
+		for isDigit(l.current) {
+			l.advance()
 		}
 	}
 
-	return token.Token{
-		Lexeme: string(l.source[start:l.position]),
-		Type:   token.NUMBER,
+	if l.current == '.' {
+		var decimal = false
+		l.advance()
+		for isDigit(l.current) {
+			l.advance()
+			decimal = true
+		}
+		if !decimal {
+
+		}
 	}
+
+	l.addStringToken(string(l.source[start:l.position-1]), token.NUMBER)
+
 }
 
-func (l *Lexer) identifier() token.Token {
+func (l *Lexer) identifier() {
 
-	start := l.position
+	start := l.position - 1
 
 	for isAlpha(l.current) || isDigit(l.current) {
-		l.readChar()
+		l.advance()
 	}
-
-	return token.Token{
-		Lexeme: string(l.source[start:l.position]),
-		Type:   token.IDENT,
-	}
+	lit := string(l.source[start : l.position-1])
+	tt := token.LookupKeyWord(lit)
+	l.addStringToken(lit, tt)
 }
 
-func isDigit(ch byte) bool {
+func isDigit(ch rune) bool {
 	return ch >= '0' && ch <= '9'
 }
 
-func isAlpha(ch byte) bool {
-	return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch == '_')
+func isAlpha(ch rune) bool {
+	return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || ch == '_'
+}
+
+func (l *Lexer) string() {
+	start := l.position
+	l.advance()
+	for l.current != '\'' {
+		l.advance()
+	}
+	l.addStringToken(string(l.source[start:l.position-1]), token.STRING)
+}
+
+func (l *Lexer) isAtEnd() bool {
+	if l.position >= len(l.source) {
+		return true
+	}
+	return false
 }
