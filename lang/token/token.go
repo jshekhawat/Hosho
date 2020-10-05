@@ -38,6 +38,7 @@ const (
 	LET      = "LET"
 	TRUE     = "TRUE"
 	FALSE    = "FALSE"
+	LIKE     = "LIKE"
 )
 
 //Type is
@@ -59,6 +60,7 @@ var keywords = map[string]Type{
 	"in":    IN,
 	"and":   AND,
 	"or":    OR,
+	"like":  LIKE,
 }
 
 //LookupKeyWord ...
