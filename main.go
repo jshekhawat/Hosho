@@ -1,12 +1,9 @@
 package main
 
 import (
-	"os"
-
-	"github.com/jshekhawat/hosho/repl"
+	"github.com/jshekhawat/hosho/cmd"
 )
 
 func main() {
-	r := repl.New(os.Stdin, os.Stdout)
-	r.Cor()
+	cmd.Execute()
 }
