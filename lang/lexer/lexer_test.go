@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/jshekhawat/pogo/lang/token"
+	"github.com/jshekhawat/hosho/lang/token"
 )
 
 func TestNonLiterals(t *testing.T) {
@@ -56,12 +56,12 @@ func TestIdentifiers(t *testing.T) {
 	lex.Tokenise()
 
 	for i, tt := range tests {
-		tok := lex.tokens[0]
+		tok := lex.Tokens[0]
 
 		fmt.Printf("Expected Type %q - Got %q \n", tt.expectedType, tok.Type)
 
 		if tok.Type == tt.expectedType {
-			for _, tok1 := range lex.tokens {
+			for _, tok1 := range lex.Tokens {
 				t.Errorf("Token Type - %q | Token Value - %q \n", tok1.Type, tok1.Lexeme)
 
 			}

@@ -4,14 +4,14 @@ import (
 	"io"
 	"io/ioutil"
 
-	"github.com/jshekhawat/pogo/lang/token"
+	"github.com/jshekhawat/hosho/lang/token"
 )
 
 //Lexer only supports ascii
 type Lexer struct {
 	current  rune
 	source   []byte
-	tokens   []token.Token
+	Tokens   []token.Token
 	position int //the position of the current byte
 	line     int
 	errors   []Error
@@ -40,7 +40,7 @@ func New(r io.Reader) *Lexer {
 	return l
 }
 
-//Tokenise takes an input stream and tokenises it, tokens are stored in the tokens slice
+//Tokenise takes an input stream and tokenises it, Tokens are stored in the Tokens slice
 func (l *Lexer) Tokenise() {
 
 	for !l.isAtEnd() {
@@ -67,14 +67,14 @@ func (l *Lexer) match(ch byte) bool {
 }
 
 func (l *Lexer) addToken(ch rune, tt token.Type) {
-	l.tokens = append(l.tokens, token.Token{
+	l.Tokens = append(l.Tokens, token.Token{
 		Lexeme: string(ch),
 		Type:   tt,
 	})
 }
 
 func (l *Lexer) addStringToken(str string, tt token.Type) {
-	l.tokens = append(l.tokens, token.Token{
+	l.Tokens = append(l.Tokens, token.Token{
 		Lexeme: str,
 		Type:   tt,
 	})
